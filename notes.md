@@ -8,10 +8,10 @@ As part of `Deliverable ⓵ Development deployment: JWT Pizza`, start up the app
 | --------------------------------------------------- | ------------------ | ----------------- | ------------ |
 | View home page                                      |home.tsx            |_None_             |_None_        |
 | Register new user<br/>(t@jwt.com, pw: test)         |register.tsx        |[POST] /api/auth   |INSERT INTO user (name, email, password) VALUES (?, ?, ?) INSERT INTO userRole (userId, role, objectId) VALUES (?, ?, ?)                     |
-| Login new user<br/>(t@jwt.com, pw: test)            |login.tsx           |[PUT] /api/auth    |              |
-| Order pizza                                         |menu.tsx            |[POST] /api/order  |              |
-| Verify pizza                                        |delivery.tsx        |[POST] /api/order/verify|         |
-| View profile page                                   |dinerDashboard.tsx  |[GET] /api/order|              |
+| Login new user<br/>(t@jwt.com, pw: test)            |login.tsx           |[PUT] /api/auth    |INSERT INTO auth (token, userId) VALUES (?, ?) ON DUPLICATE KEY UPDATE token=token              |
+| Order pizza                                         |menu.tsx            |[POST] /api/order  |INSERT INTO dinerOrder (dinerId, franchiseId, storeId, date) VALUES (?, ?, ?, now()) INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)              |
+| Verify pizza                                        |delivery.tsx        |_This call is done directly to https://pizza-factory.cs329.click. It does not pass through the backend._[POST] /api/order/verify|_None, at least within the jwt-pizza or jwt-pizza-service repos._         |
+| View profile page                                   |dinerDashboard.tsx  |[GET] /api/order|SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=? LIMIT ${offset} [user.id] SELECT id, menuId, description, price FROM orderItem WHERE orderId=?              |
 | View franchise<br/>(as diner)                       |franchiseDashboard.tsx|[GET] /api/franchise/${user.id}|              |
 | Logout                                              |logout.tsx          |[DELETE] /api/auth                   |              |
 | View About page                                     |about.tsx           |_None_             |_None_        |
