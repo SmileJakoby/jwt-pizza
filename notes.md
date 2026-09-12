@@ -12,15 +12,15 @@ As part of `Deliverable ⓵ Development deployment: JWT Pizza`, start up the app
 | Order pizza                                         |menu.tsx            |[POST] /api/order  |INSERT INTO dinerOrder (dinerId, franchiseId, storeId, date) VALUES (?, ?, ?, now()) INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)              |
 | Verify pizza                                        |delivery.tsx        |_This call is done directly to https://pizza-factory.cs329.click. It does not pass through the backend._[POST] /api/order/verify|_None, at least within the jwt-pizza or jwt-pizza-service repos._         |
 | View profile page                                   |dinerDashboard.tsx  |[GET] /api/order|SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=? LIMIT ${offset} [user.id] SELECT id, menuId, description, price FROM orderItem WHERE orderId=?              |
-| View franchise<br/>(as diner)                       |franchiseDashboard.tsx|[GET] /api/franchise/${user.id}|              |
+| View franchise<br/>(as diner)                       |franchiseDashboard.tsx|[GET] /api/franchise/${user.id}|SELECT objectId FROM userRole WHERE role='franchisee' AND userId=? SELECT id, name FROM franchise WHERE id in (${franchiseIds.join(',')})              |
 | Logout                                              |logout.tsx          |[DELETE] /api/auth                   |              |
 | View About page                                     |about.tsx           |_None_             |_None_        |
 | View History page                                   |history.tsx         |_None_             |_None_        |
-| Login as franchisee<br/>(f@jwt.com, pw: franchisee) |login.tsx           |[PUT] /api/auth    |              |
-| View franchise<br/>(as franchisee)                  |franchiseDashboard.tsx|[GET] /api/franchise/${user.id}|              |
-| Create a store                                      |createStore.tsx     |[POST]/api/franchise/${franchise.id}/store|        |
-| Close a store                                       |closeStore.tsx      |[DELETE]/api/franchise/${franchise.id}/store/${store.id}|              |
-| Login as admin<br/>(a@jwt.com, pw: admin)           |login.tsx           |[PUT] /api/auth    |              |
-| View Admin page                                     |adminDashboard.tsx  |[GET] /api/franchise?page=${page}&limit=${limit}&name=${nameFilter}`                   |              |
-| Create a franchise for t@jwt.com                    |createFranchise.tsx |[POST] /api/franchise|              |
-| Close the franchise for t@jwt.com                   |closeFranchise.tsx  |[DELETE] /api/franchise/${franchise.id}|              |
+| Login as franchisee<br/>(f@jwt.com, pw: franchisee) |login.tsx           |[PUT] /api/auth    |DELETE FROM auth WHERE token=?              |
+| View franchise<br/>(as franchisee)                  |franchiseDashboard.tsx|[GET] /api/franchise/${user.id}| SELECT objectId FROM userRole WHERE role='franchisee' AND userId=? SELECT id, name FROM franchise WHERE id in (${franchiseIds.join(',')})             |
+| Create a store                                      |createStore.tsx     |[POST]/api/franchise/${franchise.id}/store|INSERT INTO store (franchiseId, name) VALUES (?, ?)        |
+| Close a store                                       |closeStore.tsx      |[DELETE]/api/franchise/${franchise.id}/store/${store.id}| SELECT u.id, u.name, u.email FROM userRole AS ur JOIN user AS u ON u.id=ur.userId WHERE ur.objectId=? AND ur.role='franchisee' SELECT s.id, s.name, COALESCE(SUM(oi.price), 0) AS totalRevenue FROM dinerOrder AS do JOIN orderItem AS oi ON do.id=oi.orderId RIGHT JOIN store AS s ON s.id=do.storeId WHERE s.franchiseId=? GROUP BY s.id DELETE FROM store WHERE franchiseId=? AND id=?             |
+| Login as admin<br/>(a@jwt.com, pw: admin)           |login.tsx           |[PUT] /api/auth    |SELECT * FROM userRole WHERE userId=?              |
+| View Admin page                                     |adminDashboard.tsx  |[GET] /api/franchise?page=${page}&limit=${limit}&name=${nameFilter}`  |SELECT id, name FROM franchise WHERE name LIKE ? LIMIT ${limit + 1} OFFSET ${offset} SELECT id, name FROM store WHERE franchiseId=?              |
+| Create a franchise for t@jwt.com                    |createFranchise.tsx |[POST] /api/franchise| _First, make sure this request comes from an admin._ SELECT id, name FROM user WHERE email=? _Okay now we do the actual db calls_ INSERT INTO franchise (name) VALUES (?) INSERT INTO userRole (userId, role, objectId) VALUES (?, ?, ?)             |
+| Close the franchise for t@jwt.com                   |closeFranchise.tsx  |[DELETE] /api/franchise/${franchise.id}| DELETE FROM store WHERE franchiseId=? DELETE FROM userRole WHERE objectId=? DELETE FROM franchise WHERE id=?           |
