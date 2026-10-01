@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 
 const token = 'test-token';
 
+//users represents potential
 const users = {
   diner: { id: '2', name: 'Pizza Diner', email: 'd@jwt.com', roles: [{ role: 'diner' }] },
   admin: { id: '1', name: 'Admin User', email: 'admin@jwt.test', roles: [{ role: 'admin' }] },
@@ -30,7 +31,12 @@ const order = {
   items: [{ menuId: '1', description: 'Veggie', price: 0.0038 }],
 };
 
+//Mocking the backend all in one function is far easier to keep track of, and far more scalable. 
+//initialUser isn't a full user; it's moreso saying "I want to make this call as if I were an Admin/Diner/Franchisee/LoggedOutUser"
 async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof users] | null = null) {
+  
+  //Determine whether we are an authenticated user or not. If initialUser is blank, authenticatedUser will also be blank.
+  //Authenticated user is persisted forever, since mockBackend itself never returns; it's routing functions return, but mockBackend doesn't ever leave the stack; it is always listening.
   let authenticatedUser = initialUser;
   await page.addInitScript(
     (authToken) => {
@@ -39,21 +45,33 @@ async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof 
     initialUser ? token : '',
   );
 
+  //Trivial routing case. Just a version test.
   await page.route('**/version.json', (route) => route.fulfill({ json: { version: 'test' } }));
+
+  //The bulk of the logic: when /api is called
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const { pathname, searchParams } = new URL(request.url());
     const method = request.method();
     const body = request.postData() ? (request.postDataJSON() as { email?: string }) : null;
 
+    //Logging out requires the most complex interaction. 
+    //If we do Delete, then set authenticatedUser to null and return empty JSON.
     if (pathname.endsWith('/api/auth')) {
       if (method === 'DELETE') {
         authenticatedUser = null;
         return route.fulfill({ json: {} });
       }
+      //If we are not an authenticatedUser, mock an unauthenticated response.
       if (body?.email === 'bad@jwt.test') return route.fulfill({ status: 401, json: { message: 'invalid credentials' } });
+      //If the method is 'POST' choose to use users.diner 
+      //If the email matches the admin email, choose to use users.admin
+      //If the email matches the franchisee eamil, choose to use users.franchisee
+      //If all else fails, choose to use users.diner
       const user = method === 'POST' ? users.diner : body?.email === users.admin.email ? users.admin : body?.email === users.franchisee.email ? users.franchisee : users.diner;
+      //Set authenticatedUser to the chosen user.
       authenticatedUser = user;
+      //Return our chosen user and authToken.
       return route.fulfill({ json: { user, token } });
     }
 
