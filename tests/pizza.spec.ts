@@ -10,6 +10,21 @@ const users = {
   franchisee: { id: '3', name: 'Fran Chisee', email: 'franchise@jwt.test', roles: [{ role: 'franchisee', objectId: '10' }] },
 };
 
+const adminUsers = [
+  { id: '101', name: 'Kai Chen', email: 'kai@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '102', name: 'Buddy', email: 'buddy@jwt.com', roles: [{ role: 'admin' }] },
+  { id: '103', name: 'Sam', email: 'sam@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '104', name: 'Riley', email: 'riley@jwt.com', roles: [{ role: 'franchisee' }] },
+  { id: '105', name: 'Diner One', email: 'diner1@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '106', name: 'Diner Two', email: 'diner2@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '107', name: 'Diner Three', email: 'diner3@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '108', name: 'Diner Four', email: 'diner4@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '109', name: 'Diner Five', email: 'diner5@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '110', name: 'Diner Six', email: 'diner6@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '111', name: 'Luca Doe', email: 'luca@jwt.com', roles: [{ role: 'diner' }] },
+  { id: '112', name: 'Mia Doe', email: 'mia@jwt.com', roles: [{ role: 'diner' }] },
+];
+
 const menuRes = [
   { id: '1', title: 'Veggie', image: 'pizza1.png', price: 0.0038, description: 'A garden of delight' },
   { id: '2', title: 'Pepperoni', image: 'pizza2.png', price: 0.0042, description: 'Spicy treat' },
@@ -34,6 +49,9 @@ const order = {
 //Mocking the backend all in one function is far easier to keep track of, and far more scalable. 
 //initialUser isn't a full user; it's moreso saying "I want to make this call as if I were an Admin/Diner/Franchisee/LoggedOutUser"
 async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof users] | null = null) {
+  let userDirectory = adminUsers.map((user) => ({ ...user, roles: [...user.roles] }));
+  const userListRequests: string[] = [];
+  const deletedUserIds: string[] = [];
   
   //Determine whether we are an authenticated user or not. If initialUser is blank, authenticatedUser will also be blank.
   //Authenticated user is persisted forever, since mockBackend itself never returns; it's routing functions return, but mockBackend doesn't ever leave the stack; it is always listening.
@@ -76,6 +94,26 @@ async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof 
     }
 
     if (pathname.endsWith('/api/user/me')) return route.fulfill({ json: authenticatedUser });
+    if (pathname === '/api/user' && method === 'GET') {
+      userListRequests.push(request.url());
+      const pageNumber = Number(searchParams.get('page') ?? 1);
+      const limit = Number(searchParams.get('limit') ?? 10);
+      const nameFilter = (searchParams.get('name') ?? '*').replace(/\*/g, '').toLowerCase();
+      const filteredUsers = userDirectory.filter((user) => user.name.toLowerCase().includes(nameFilter));
+      const start = (pageNumber - 1) * limit;
+      return route.fulfill({
+        json: {
+          users: filteredUsers.slice(start, start + limit),
+          more: start + limit < filteredUsers.length,
+        },
+      });
+    }
+    if (pathname.startsWith('/api/user/') && method === 'DELETE') {
+      const userId = pathname.split('/').at(-1)!;
+      deletedUserIds.push(userId);
+      userDirectory = userDirectory.filter((user) => user.id !== userId);
+      return route.fulfill({ json: {} });
+    }
     if (pathname.endsWith('/api/order/menu')) return route.fulfill({ json: menuRes });
     if (pathname.endsWith('/api/order/verify')) return route.fulfill({ json: { message: 'valid', payload: { id: order.id } } });
     if (pathname.endsWith('/api/order') && method === 'POST') return route.fulfill({ json: { order, jwt: 'signed-test-jwt' } });
@@ -93,6 +131,8 @@ async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof 
 
     return route.fulfill({ json: {} });
   });
+
+  return { userListRequests, deletedUserIds };
 }
 
 async function login(page: Page, email: string, password = 'password') {
@@ -167,6 +207,68 @@ test('admin can filter, paginate, create, and close franchises and stores', asyn
   await rows.first().getByRole('button', { name: 'Close' }).nth(1).click();
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('heading', { name: "Mama Ricci's kitchen" })).toBeVisible();
+});
+
+test('only admins can see the admin dashboard navigation link', async ({ page }) => {
+  await mockBackend(page);
+  await login(page, users.diner.email);
+  await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Logout' }).click();
+  await login(page, users.admin.email);
+  await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible();
+});
+
+test('admin can list users with their names, emails, and roles across pages', async ({ page }) => {
+  const backend = await mockBackend(page);
+  await login(page, users.admin.email);
+  await page.goto('/admin-dashboard');
+
+  await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+  const kaiRow = page.getByRole('row').filter({ hasText: 'Kai Chen' });
+  await expect(kaiRow.getByRole('cell')).toHaveText(['Kai Chen', 'kai@jwt.com', 'diner']);
+  await expect(page.getByRole('row').filter({ hasText: 'Luca Doe' })).toHaveCount(0);
+
+  const firstRequest = new URL(backend.userListRequests[0]);
+  expect(firstRequest.pathname).toBe('/api/user');
+  expect(firstRequest.searchParams.get('page')).toBe('1');
+  expect(firstRequest.searchParams.get('limit')).toBe('10');
+  expect(firstRequest.searchParams.get('name')).toBe('*');
+
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Luca Doe' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Kai Chen' })).toHaveCount(0);
+  expect(new URL(backend.userListRequests[1]).searchParams.get('page')).toBe('2');
+});
+
+test('admin can filter users by name', async ({ page }) => {
+  const backend = await mockBackend(page);
+  await login(page, users.admin.email);
+  await page.goto('/admin-dashboard');
+  await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+
+  await page.getByPlaceholder('Name').fill('Kai');
+  await page.getByRole('button', { name: 'Search' }).click();
+
+  await expect(page.getByRole('row').filter({ hasText: 'Kai Chen' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Buddy' })).toHaveCount(0);
+  const searchRequest = new URL(backend.userListRequests.at(-1)!);
+  expect(searchRequest.searchParams.get('page')).toBe('1');
+  expect(searchRequest.searchParams.get('name')).toBe('*Kai*');
+});
+
+test('admin can delete a user from the list', async ({ page }) => {
+  const backend = await mockBackend(page);
+  await login(page, users.admin.email);
+  await page.goto('/admin-dashboard');
+  await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+
+  const kaiRow = page.getByRole('row').filter({ hasText: 'Kai Chen' });
+  await expect(kaiRow).toBeVisible();
+  await kaiRow.getByRole('button', { name: 'Delete Kai Chen' }).click();
+
+  await expect(kaiRow).toHaveCount(0);
+  expect(backend.deletedUserIds).toEqual(['101']);
 });
 
 test('franchisee can manage a store and see the franchise dashboard', async ({ page }) => {
