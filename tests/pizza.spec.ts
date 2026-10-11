@@ -200,13 +200,13 @@ test('admin can filter, paginate, create, and close franchises and stores', asyn
   await page.getByRole('button', { name: 'Create' }).click();
   await expect(page.getByText('JWT Provo')).toBeVisible();
 
-  const rows = page.locator('tbody');
+  const rows = page.locator('table').nth(1).locator('tbody');
   await rows.first().getByRole('button', { name: 'Close' }).first().click();
   await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByRole('heading', { name: "Mama Ricci's kitchen" })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Admin User's kitchen" })).toBeVisible();
   await rows.first().getByRole('button', { name: 'Close' }).nth(1).click();
   await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByRole('heading', { name: "Mama Ricci's kitchen" })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Admin User's kitchen" })).toBeVisible();
 });
 
 test('only admins can see the admin dashboard navigation link', async ({ page }) => {
@@ -224,10 +224,12 @@ test('admin can list users with their names, emails, and roles across pages', as
   await login(page, users.admin.email);
   await page.goto('/admin-dashboard');
 
-  await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
-  const kaiRow = page.getByRole('row').filter({ hasText: 'Kai Chen' });
-  await expect(kaiRow.getByRole('cell')).toHaveText(['Kai Chen', 'kai@jwt.com', 'diner']);
-  await expect(page.getByRole('row').filter({ hasText: 'Luca Doe' })).toHaveCount(0);
+  const usersTable = page.getByRole('table', { name: 'Users' });
+  await expect(usersTable).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Admin User's kitchen" })).toBeVisible();
+  const kaiRow = usersTable.getByRole('row').filter({ hasText: 'Kai Chen' });
+  await expect(kaiRow.getByRole('cell')).toHaveText(['Kai Chen', 'kai@jwt.com', 'diner', ' Delete']);
+  await expect(usersTable.getByRole('row').filter({ hasText: 'Luca Doe' })).toHaveCount(0);
 
   const firstRequest = new URL(backend.userListRequests[0]);
   expect(firstRequest.pathname).toBe('/api/user');
@@ -235,23 +237,32 @@ test('admin can list users with their names, emails, and roles across pages', as
   expect(firstRequest.searchParams.get('limit')).toBe('10');
   expect(firstRequest.searchParams.get('name')).toBe('*');
 
+  await expect(usersTable.getByRole('button', { name: 'Prev' })).toBeDisabled();
+  await expect(usersTable.getByRole('button', { name: 'Next' })).toBeEnabled();
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page.getByRole('row').filter({ hasText: 'Luca Doe' })).toBeVisible();
-  await expect(page.getByRole('row').filter({ hasText: 'Kai Chen' })).toHaveCount(0);
+  await expect(usersTable.getByRole('row').filter({ hasText: 'Luca Doe' })).toBeVisible();
+  await expect(usersTable.getByRole('row').filter({ hasText: 'Kai Chen' })).toHaveCount(0);
   expect(new URL(backend.userListRequests[1]).searchParams.get('page')).toBe('2');
+  await expect(usersTable.getByRole('button', { name: 'Prev' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Prev' }).click();
+  await expect(usersTable.getByRole('row').filter({ hasText: 'Kai Chen' })).toBeVisible();
+  expect(new URL(backend.userListRequests[2]).searchParams.get('page')).toBe('1');
 });
 
 test('admin can filter users by name', async ({ page }) => {
   const backend = await mockBackend(page);
   await login(page, users.admin.email);
   await page.goto('/admin-dashboard');
-  await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+  const usersTable = page.getByRole('table', { name: 'Users' });
+  await expect(usersTable).toBeVisible();
 
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(usersTable.getByRole('row').filter({ hasText: 'Luca Doe' })).toBeVisible();
   await page.getByPlaceholder('Name').fill('Kai');
   await page.getByRole('button', { name: 'Search' }).click();
 
-  await expect(page.getByRole('row').filter({ hasText: 'Kai Chen' })).toBeVisible();
-  await expect(page.getByRole('row').filter({ hasText: 'Buddy' })).toHaveCount(0);
+  await expect(usersTable.getByRole('row').filter({ hasText: 'Kai Chen' })).toBeVisible();
+  await expect(usersTable.getByRole('row').filter({ hasText: 'Buddy' })).toHaveCount(0);
   const searchRequest = new URL(backend.userListRequests.at(-1)!);
   expect(searchRequest.searchParams.get('page')).toBe('1');
   expect(searchRequest.searchParams.get('name')).toBe('*Kai*');
@@ -261,10 +272,17 @@ test('admin can delete a user from the list', async ({ page }) => {
   const backend = await mockBackend(page);
   await login(page, users.admin.email);
   await page.goto('/admin-dashboard');
-  await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+  const usersTable = page.getByRole('table', { name: 'Users' });
+  await expect(usersTable).toBeVisible();
 
-  const kaiRow = page.getByRole('row').filter({ hasText: 'Kai Chen' });
+  const kaiRow = usersTable.getByRole('row').filter({ hasText: 'Kai Chen' });
   await expect(kaiRow).toBeVisible();
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await kaiRow.getByRole('button', { name: 'Delete Kai Chen' }).click();
+  await expect(kaiRow).toBeVisible();
+  expect(backend.deletedUserIds).toEqual([]);
+
+  page.once('dialog', (dialog) => dialog.accept());
   await kaiRow.getByRole('button', { name: 'Delete Kai Chen' }).click();
 
   await expect(kaiRow).toHaveCount(0);

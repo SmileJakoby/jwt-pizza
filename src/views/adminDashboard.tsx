@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import NotFound from './notFound';
 import Button from '../components/button';
 import { pizzaService } from '../service/service';
-import { Franchise, FranchiseList, Role, Store, User } from '../service/pizzaService';
+import { Franchise, FranchiseList, Role, Store, User, UserList } from '../service/pizzaService';
 import { TrashIcon } from '../icons';
 
 interface Props {
@@ -16,12 +16,24 @@ export default function AdminDashboard(props: Props) {
   const [franchiseList, setFranchiseList] = React.useState<FranchiseList>({ franchises: [], more: false });
   const [franchisePage, setFranchisePage] = React.useState(0);
   const filterFranchiseRef = React.useRef<HTMLInputElement>(null);
+  const [userList, setUserList] = React.useState<UserList>({ users: [], more: false });
+  const [userPage, setUserPage] = React.useState(1);
+  const [userNameFilter, setUserNameFilter] = React.useState('*');
+  const [userQueryVersion, setUserQueryVersion] = React.useState(0);
+  const filterUserRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     (async () => {
       setFranchiseList(await pizzaService.getFranchises(franchisePage, 3, '*'));
     })();
   }, [props.user, franchisePage]);
+
+  React.useEffect(() => {
+    if (!Role.isRole(props.user, Role.Admin)) return;
+    (async () => {
+      setUserList(await pizzaService.getUsers(userPage, 10, userNameFilter));
+    })();
+  }, [props.user, userPage, userNameFilter, userQueryVersion]);
 
   function createFranchise() {
     navigate('/admin-dashboard/create-franchise');
@@ -39,10 +51,98 @@ export default function AdminDashboard(props: Props) {
     setFranchiseList(await pizzaService.getFranchises(franchisePage, 10, `*${filterFranchiseRef.current?.value}*`));
   }
 
+  function searchUsers() {
+    setUserPage(1);
+    setUserNameFilter(`*${filterUserRef.current?.value ?? ''}*`);
+    setUserQueryVersion((version) => version + 1);
+  }
+
+  async function deleteUser(user: User) {
+    if (!window.confirm(`Are you sure you want to delete ${user.name ?? 'this user'}?`)) return;
+    await pizzaService.deleteUser(user);
+    setUserQueryVersion((version) => version + 1);
+  }
+
   let response = <NotFound />;
   if (Role.isRole(props.user, Role.Admin)) {
     response = (
-      <View title="Mama Ricci's kitchen">
+      <View title={`${props.user.name ?? 'Admin'}'s kitchen`}>
+        <div className="text-start py-8 px-4 sm:px-6 lg:px-8">
+          <div className="bg-neutral-100 overflow-clip my-4">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <caption className="px-4 py-3 text-left text-xl font-semibold text-gray-800">Users</caption>
+                <thead className="uppercase text-neutral-100 bg-slate-400 border-b-2 border-gray-500">
+                  <tr>
+                    {['Name', 'Email', 'Role', 'Action'].map((header) => (
+                      <th key={header} scope="col" className="px-6 py-3 text-center text-xs font-medium">
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {userList.users.map((user) => (
+                    <tr key={user.id} className="bg-neutral-100">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-800">{user.name}</td>
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-800">{user.email}</td>
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-800">{user.roles?.map((role) => role.role).join(', ')}</td>
+                      <td className="px-6 py-3 whitespace-nowrap text-center text-sm font-medium">
+                        <button
+                          type="button"
+                          aria-label={`Delete ${user.name ?? user.email ?? 'user'}`}
+                          className="inline-flex items-center gap-x-2 text-sm font-semibold text-orange-600 hover:text-orange-800"
+                          onClick={() => deleteUser(user)}
+                        >
+                          <TrashIcon />
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className="px-1 py-2" colSpan={2}>
+                      <input
+                        type="text"
+                        ref={filterUserRef}
+                        name="filterUser"
+                        placeholder="Name"
+                        className="px-2 py-1 text-sm border border-gray-300 rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        className="ml-2 px-2 py-1 text-sm font-semibold rounded-lg border border-orange-400 text-orange-600 hover:border-orange-800 hover:text-orange-800"
+                        onClick={searchUsers}
+                      >
+                        Search
+                      </button>
+                    </td>
+                    <td colSpan={2} className="text-end text-sm font-medium">
+                      <button
+                        type="button"
+                        className="w-12 p-1 text-sm font-semibold border border-transparent bg-white m-1 hover:bg-orange-200 disabled:bg-neutral-300"
+                        onClick={() => setUserPage((page) => Math.max(1, page - 1))}
+                        disabled={userPage <= 1}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        className="w-12 p-1 text-sm font-semibold border border-transparent bg-white m-1 hover:bg-orange-200 disabled:bg-neutral-300"
+                        onClick={() => setUserPage((page) => page + 1)}
+                        disabled={!userList.more}
+                      >
+                        Next
+                      </button>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
         <div className="text-start py-8 px-4 sm:px-6 lg:px-8">
           <h3 className="text-neutral-100 text-xl">Franchises</h3>
           <div className="bg-neutral-100 overflow-clip my-4">
