@@ -1,5 +1,6 @@
 import { test, expect } from 'playwright-test-coverage';
 import type { Page } from '@playwright/test';
+import type { User } from '../src/service/pizzaService';
 
 const token = 'test-token';
 
@@ -52,6 +53,7 @@ async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof 
   let userDirectory = adminUsers.map((user) => ({ ...user, roles: [...user.roles] }));
   const userListRequests: string[] = [];
   const deletedUserIds: string[] = [];
+  let registeredUser: User | null = null;
   
   //Determine whether we are an authenticated user or not. If initialUser is blank, authenticatedUser will also be blank.
   //Authenticated user is persisted forever, since mockBackend itself never returns; it's routing functions return, but mockBackend doesn't ever leave the stack; it is always listening.
@@ -71,7 +73,9 @@ async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof 
     const request = route.request();
     const { pathname, searchParams } = new URL(request.url());
     const method = request.method();
-    const body = request.postData() ? (request.postDataJSON() as { email?: string }) : null;
+    const body = request.postData()
+      ? (request.postDataJSON() as { id?: string; name?: string; email?: string; password?: string; roles?: User['roles'] })
+      : null;
 
     //Logging out requires the most complex interaction. 
     //If we do Delete, then set authenticatedUser to null and return empty JSON.
@@ -86,14 +90,29 @@ async function mockBackend(page: Page, initialUser: (typeof users)[keyof typeof 
       //If the email matches the admin email, choose to use users.admin
       //If the email matches the franchisee eamil, choose to use users.franchisee
       //If all else fails, choose to use users.diner
-      const user = method === 'POST' ? users.diner : body?.email === users.admin.email ? users.admin : body?.email === users.franchisee.email ? users.franchisee : users.diner;
+      const user =
+        method === 'POST'
+          ? { id: 'registered-user', name: body?.name, email: body?.email, roles: [{ role: 'diner' as const }] }
+          : registeredUser?.email === body?.email
+            ? registeredUser
+            : body?.email === users.admin.email
+              ? users.admin
+              : body?.email === users.franchisee.email
+                ? users.franchisee
+                : users.diner;
       //Set authenticatedUser to the chosen user.
       authenticatedUser = user;
+      if (method === 'POST') registeredUser = user;
       //Return our chosen user and authToken.
       return route.fulfill({ json: { user, token } });
     }
 
     if (pathname.endsWith('/api/user/me')) return route.fulfill({ json: authenticatedUser });
+    if (pathname.startsWith('/api/user/') && method === 'PUT') {
+      registeredUser = { ...registeredUser, ...body };
+      authenticatedUser = registeredUser;
+      return route.fulfill({ json: { user: registeredUser, token } });
+    }
     if (pathname === '/api/user' && method === 'GET') {
       userListRequests.push(request.url());
       const pageNumber = Number(searchParams.get('page') ?? 1);
@@ -309,7 +328,7 @@ test('registration, failed login, and logout are handled', async ({ page }) => {
   await page.getByPlaceholder('Email address').fill('new@jwt.test');
   await page.getByPlaceholder('Password').fill('password');
   await page.getByRole('button', { name: 'Register' }).click();
-  await expect(page.getByRole('link', { name: 'PD' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'ND' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Logout' }).click();
   await expect(page.getByRole('heading', { name: "The web's best pizza" })).toBeVisible();
@@ -321,6 +340,7 @@ test('registration, failed login, and logout are handled', async ({ page }) => {
 });
 
 test('updateUser', async ({ page }) => {
+  await mockBackend(page);
   const email = `user${Math.floor(Math.random() * 10000)}@jwt.com`;
   await page.goto('/');
   await page.getByRole('link', { name: 'Register' }).click();
