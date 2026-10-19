@@ -48,6 +48,9 @@ jobs:
         with:
           path: dist/
   deploy:
+    permissions:
+      id-token: write # Required for requesting the JWT
+      contents: read  # Required for actions/checkout
     runs-on: ubuntu-latest
     steps:
       - name: Create OIDC token to AWS
