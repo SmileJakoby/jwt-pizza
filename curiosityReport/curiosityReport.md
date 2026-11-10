@@ -38,3 +38,6 @@ So, I used the testing suite to go through every spawn point in a level, place t
 **What you learned**
 I was very surprised that the testing suite in Unreal Engine was a plugin that needed to be opted into. I can only guess why that is.
 Unsurprisingly, writing tests isn't always too different from writing actual code. 
+
+I foresee the automated testing suite being most useful for testing the integrity of individually placed actors/objects throughout the game. Other than spawn points, the most prevelant one I foresee is enemies; they can be pretty finnicky things to work with, and they will likely be receiving changes right up until release. I want a suite of unit tests for them that will ensure that none of these changes break critical behavior. 
+
