@@ -20,28 +20,33 @@ I watched a youtube video about it (https://www.youtube.com/watch?v=vBsGMv2mUPA)
 ## My Experiment
 
 Firstly, I installed the official plugin for automated testing (I can't believe this is something that you have to opt into...)
+
 ![Plugin page](CuriosityReport1.png)
 
 Then, I created a new 'blueprint' (Unreal Engine's equivalent to a 'class') and made it a child of the 'FunctionalTest' blueprint.
+
 ![Creating a blueprint](CuriosityReport2.png)
 ![Selecting a parent object](CuriosityReport3.png)
 
 Within this blueprint, I wrote a test that goes through every spawn point of a level. It required a bit of debugging, of course. Additionally, note that Unreal Engine has a form of low-code that serves as the primary form of code we use for this game. Although C++ is an option (I personally voted in favor of using c++), we use low-code because it makes it easier for the less technical members of the team to make changes (for example, when an engineer builds something, they may use a placeholder asset. Blueprints make it easier for the artist to go in and replace that placeholder with their own asset, and adjust settings such as location and scale).
+
 ![Startup script](CuriosityReport5.png)
 ![Recursive function part 1](CuriosityReport7.png)
 ![Recursive function part 2](CuriosityReport6.png)
 
 Once the blueprint was made, I placed the test within the level I wanted it performed on, and then used the provided front-end to initiate the test. 
+
 ![Front-end screenshot](CuriosityReport4.png)
 ![Test results](CuriosityReport8.png)
 
 One thing I really appreciated about this testing suite was that the tests were done by running the actual game; it wasn't done in a vacuum, but rather while actually simulating the entire game. This personally raises my confidence in the test a lot. 
 
-**What you learned**
+**What I learned**
+Obviously, I learned how to the official plugin for automated testing in Unreal Engine, which is a big win.
 I was very surprised that the testing suite in Unreal Engine was a plugin that needed to be opted into. I can only guess why that is.
 Unsurprisingly, writing tests isn't always too different from writing actual code. 
 
-Additionally, after doing a bit of extra research... currently, there is no in-engine support for mocks and spies! 
+Additionally, after doing a bit of extra research (surface-level google searches and ChatGPT) I also learned currently, there is no in-engine support for mocks and spies! (Any that does exist is so buried that not even an LLM, a.k.a 'the ultimate webscraper', was aware of it).
 I'm baffled to see this; is it really that hard to make a mock/spy? **This is a legitimate project for a future student/myself to take a look at!**
 However, the state of the art for testing in Unreal Engine seems to be on par with expectations otherwise; the frontend plugin for testing is very comfortable and familiar to use. You write tests that perform actions, and then make assertions, and pass/fail (or declare invalid/error) based on those assertions. 
 I am very glad to have learned how to use this. I can't promise I'm going to write an automated test for every single part of my game, but I can promise that it is a tool I am happy to have under my toolbelt.
