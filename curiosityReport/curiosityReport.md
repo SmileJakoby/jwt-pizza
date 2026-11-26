@@ -18,6 +18,7 @@ I've noticed that when going at a high speed at a low frame rate, it is very eas
 This is a problem that should be fixed regardless, but surely an automated test could be set up, testing each frame-rate limit (20fps, 30fps, etc) to find the exact threshold that it breaks at. 
 
 **What you did to research the topic**
+Before my experiment, I:
 I watched a youtube video about it (https://www.youtube.com/watch?v=vBsGMv2mUPA)
 Asked ChatGPT what options existed out there.
 
