@@ -1,44 +1,47 @@
-**Description of a topic and why you find it interesting**
-Automated testing in Unreal Engine. 
-Being a game engine, the nature of testing is very different. It is highly object and state-oriented, and testing is usually very functional; I get this input, and expect this output. 
-In a video game, tons of stuff has to happen in real-time. Someone running the game at 240fps will have different bugs than someone running the game at 20fps.
-Additionally, Unreal Engine offers blueprints: A low code (drag-and-drop) solution to coding. How do you test that? What external programs exist? What internal offerings does Epic Games provide? 
+# Curiosity Report: Automated Testing in Unreal Engine
 
-I find this interesting because: It is something I am actively involved in, and have been involved in for over a year. 
-And yet, so far, testing has all been manual! It sounds insane when you say that out loud. 
+## Why I Was Curious About Automated Testing in Unreal Engine
+To put it simply, I'm developing a game in Unreal Engine! Despite working with multiple people on it, automated testing has not come up yet. It sounds crazy, but testing has primarily been manual thus far. 
 
-So, before doing any research, what value could automated testing hold on the game? 
+## What are the barriers to automated testing in video games?
+Unlike other forms of software, video games are highly state-based and ran in real time. 
+For example, in Unreal Engine, the way that physics behaves literally changes based on how fast the client machine runs. At 60fps, a ball can bounce on a wall, but at 15fps, it could go through the wall. But whether or not it goes through that wall will vary not only by the frame-rate, but also by where the ball was located. 
+Thus, defining exact inputs and exact outputs for a video game can be tricky, let alone how to apply equivalence partitioning to those inputs.
 
-It is rare that exact specifications are made beforehand; unit testing will primarily need to be retroactive.
-But I think that is okay, and that alone holds enough value. 
+## What would be a useful automated test for my game?
+I am working on a single-player 3D platformer. The number of systems at play is relatively low, and the likelihood that a problem is caught with manual testing is very high. So, we want to automate things that we don't care to manually test. 
+A prime example of this is respawn points; when the player dies, they are set back to a certain point of the level. The designer (me lol) can place a ton of these respawn points all over the level, and testing 20 respawn points manually does not sound like a fun afternoon. 
+So it is decided: My goal is to automatically test every respawn point in a level!
 
-Other than a testing suite that requires all tests to pass, what other kinds of automated testing can help? 
+## What did I do for research?
+The research was relatively light. Before my experiment, I asked ChatGPT what options existed for Unreal Engine. It suggested Unreal Engine's built in 'Functional Tester'. 
+I watched a youtube video about it (https://www.youtube.com/watch?v=vBsGMv2mUPA), and used what I learned from it to perform my experiment. 
 
-I've noticed that when going at a high speed at a low frame rate, it is very easy for objects in the world to clip through others. 
-This is a problem that should be fixed regardless, but surely an automated test could be set up, testing each frame-rate limit (20fps, 30fps, etc) to find the exact threshold that it breaks at. 
+## My Experiment
 
-**What you did to research the topic**
-Before my experiment, I:
-I watched a youtube video about it (https://www.youtube.com/watch?v=vBsGMv2mUPA)
-Asked ChatGPT what options existed out there.
+Firstly, I installed the official plugin for automated testing (I can't believe this is something that you have to opt into...)
+![Plugin page](CuriosityReport1.png)
 
-**Current state of the art for the topic**
-Currently, there is no in-engine support for mocks and spies! 
-I'm baffled to see this; is it really that hard to make a mock/spy? **This is a legitimate project for a future student/myself to take a look at!**
-However, the state of the art for testing in Unreal Engine seems to be on par with expectations otherwise; the frontend plugin for testing is very comfortable and familiar to use. You write tests that perform actions, and then make assertions, and pass/fail (or declare invalid/error) based on those assertions. 
+Then, I created a new 'blueprint' (Unreal Engine's equivalent to a 'class') and made it a child of the 'FunctionalTest' blueprint.
+![Creating a blueprint](CuriosityReport2.png)
+![Selecting a parent object](CuriosityReport3.png)
 
-Generally, an Unreal Engine project is always built in a where you have a 'level' that is actively open, and you are able to 'play' that level at any time. For my project, clicking 'play' will spawn the player character in and, well, proceed to play! It is super nice that there is almost no need to build/package the project to be able to run it. 
-Running a test in the testing suite, so long as it is done with a 'functional test actor' (which must be placed within a level) will behave exactly the same. That means that all of the overhead (which, for my game, is just 1 second) for starting up a game session is included with these functional test actors. 
-I personally really appreciate that the functional test actors are tests truly done at runtime, however, since... the game itself is runtime! It helps to give more confidence in the tests. 
-That said, I expect that in-industry, a significant amount of unit tests are just done using an external c++ testing suite.
+Within this blueprint, I wrote a test that goes through every spawn point of a level. It required a bit of debugging, of course. Additionally, note that Unreal Engine has a form of low-code that serves as the primary form of code we use for this game. Although C++ is an option (I personally voted in favor of using c++), we use low-code because it makes it easier for the less technical members of the team to make changes (for example, when an engineer builds something, they may use a placeholder asset. Blueprints make it easier for the artist to go in and replace that placeholder with their own asset, and adjust settings such as location and scale).
+![Startup script](CuriosityReport5.png)
+![Recursive function part 1](CuriosityReport7.png)
+![Recursive function part 2](CuriosityReport6.png)
 
-**Experiments you conducted, including a detailed reproduction path**
-I had an immediately useful way to learn and use this testing suite: testing every spawn-point in the level of my game. Testing each spawn point manually is feasible, but obnoxious. However, when the game is shipped, it is to be assumed that every respawn point WILL be used at some point by someone. And we need to make sure that none of our sloppily-placed spawn points don't drop the player out of the map or otherwise work in an unintended way. 
-So, I used the testing suite to go through every spawn point in a level, place the player there for a split second, check and see if the player is within 100 units of that spawn point (For reference, the player character is 120 units tall; this is a rather small amount of leniency) and then move on to the next spawn point. If all spawn points succeed the test, then the test overall succeeds! If a single one fails, the test immediately fails and reports the spawn point that caused the failure. 
+Once the blueprint was made, I placed the test within the level I wanted it performed on, and then used the provided front-end to initiate the test. 
+![Front-end screenshot](CuriosityReport4.png)
+![Test results](CuriosityReport8.png)
+
+One thing I really appreciated about this testing suite was that the tests were done by running the actual game; it wasn't done in a vacuum, but rather while actually simulating the entire game. This personally raises my confidence in the test a lot. 
 
 **What you learned**
 I was very surprised that the testing suite in Unreal Engine was a plugin that needed to be opted into. I can only guess why that is.
 Unsurprisingly, writing tests isn't always too different from writing actual code. 
 
-I foresee the automated testing suite being most useful for testing the integrity of individually placed actors/objects throughout the game. Other than spawn points, the most prevelant one I foresee is enemies; they can be pretty finnicky things to work with, and they will likely be receiving changes right up until release. I want a suite of unit tests for them that will ensure that none of these changes break critical behavior. 
-
+Additionally, after doing a bit of extra research... currently, there is no in-engine support for mocks and spies! 
+I'm baffled to see this; is it really that hard to make a mock/spy? **This is a legitimate project for a future student/myself to take a look at!**
+However, the state of the art for testing in Unreal Engine seems to be on par with expectations otherwise; the frontend plugin for testing is very comfortable and familiar to use. You write tests that perform actions, and then make assertions, and pass/fail (or declare invalid/error) based on those assertions. 
+I am very glad to have learned how to use this. I can't promise I'm going to write an automated test for every single part of my game, but I can promise that it is a tool I am happy to have under my toolbelt.
