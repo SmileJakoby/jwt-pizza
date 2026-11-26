@@ -41,7 +41,7 @@ Once the blueprint was made, I placed the test within the level I wanted it perf
 
 One thing I really appreciated about this testing suite was that the tests were done by running the actual game; it wasn't done in a vacuum, but rather while actually simulating the entire game. This personally raises my confidence in the test a lot. 
 
-**What I learned**
+## What I learned
 Obviously, I learned how to the official plugin for automated testing in Unreal Engine, which is a big win.
 I was very surprised that the testing suite in Unreal Engine was a plugin that needed to be opted into. I can only guess why that is.
 Unsurprisingly, writing tests isn't always too different from writing actual code. 
